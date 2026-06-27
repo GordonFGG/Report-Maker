@@ -1,7 +1,12 @@
 from pathlib import Path
+import sys
 
-desktop_dir = Path(__file__).resolve().parent
-file_path = desktop_dir / 'report.txt'
+if getattr(sys, 'frozen', False):
+    base_dir = Path(sys.executable).resolve().parent
+else: 
+    base_dir = Path(__file__).resolve().parent
+
+file_path = base_dir / 'report.txt'
 
 good_day = 'В нерабочее время звонков не поступало.'
 
