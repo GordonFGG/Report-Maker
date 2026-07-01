@@ -1,4 +1,4 @@
-# Report Maker [OUTLOOK UPDATE]
+# Report Maker
 
 Скрипт для создания отчётов о дежурстве.
 
