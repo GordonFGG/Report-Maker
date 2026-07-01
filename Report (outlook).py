@@ -1,6 +1,6 @@
 from pathlib import Path
 import sys
-import win32com.client  # для работы с Outlook
+from win32com.client import Dispatch
 
 if getattr(sys, 'frozen', False):
     base_dir = Path(sys.executable).resolve().parent
@@ -8,17 +8,17 @@ else:
     base_dir = Path(__file__).resolve().parent
 
 file_path = base_dir / 'report.txt'
+mail_path = base_dir / 'mail-config.txt'
 
 good_day = 'В нерабочее время звонков не поступало.'
 
 reports_by_day = {}
 
-string1 = '1. Описание обращения: '
-string2 = '2. Решено: '
-string3 = '3. Время обращения: '
-string4 = '4. Привлекались ли сотрудники других отделов: '
+reason_label = '1. Описание обращения: '
+complete_label = '2. Решено: '
+time_label = '3. Время обращения: '
+deps_label = '4. Привлекались ли сотрудники других отделов: '
 
-# Основной цикл ввода отчётов
 while True:
     date = input('Введите дату отчета: ').strip()
 
@@ -28,24 +28,25 @@ while True:
     day_reports = []
 
     while True:
-        reason = (input(string1)).strip()
+        reason = (input(reason_label)).strip()
 
         if reason.lower() == 'стоп':
             break
 
         if reason == '':
-            day_reports = None
+            if not day_reports:
+                day_reports = None
             break
 
-        complete = (input(string2)).strip()
-        time = (input(string3)).strip()
-        coop = (input(string4)).strip()
+        complete = (input(complete_label)).strip()
+        time = (input(time_label)).strip()
+        deps = (input(deps_label)).strip()
 
         day_reports.append({
             'reason': reason,
             'complete': complete,
             'time': time,
-            'coop': coop
+            'deps': deps
         })
 
     reports_by_day[date] = day_reports
@@ -61,42 +62,40 @@ with open(file_path, 'w', encoding='utf-8') as f:
         else:
             for i, report in enumerate(day_reports, start=1):
                 f.write('\n')
-                f.write(f'  {string1}{report["reason"]}\n')
-                f.write(f'  {string2}{report["complete"]}\n')
-                f.write(f'  {string3}{report["time"]}\n')
-                f.write(f'  {string4}{report["coop"]}\n')
+                f.write(f'  {reason_label}{report["reason"]}\n')
+                f.write(f'  {complete_label}{report["complete"]}\n')
+                f.write(f'  {time_label}{report["time"]}\n')
+                f.write(f'  {deps_label}{report["deps"]}\n')
                 f.write('\n')
 
-# ---- Автоматическая отправка письма через Outlook ----
-def send_report_via_outlook():
+def send_report():
     try:
-        # Читаем содержимое сохранённого отчёта
+        
         with open(file_path, 'r', encoding='utf-8') as f:
             body_text = f.read()
 
-        # Создаём экземпляр Outlook
-        outlook = win32com.client.Dispatch("Outlook.Application")
-        mail = outlook.CreateItem(0)  # 0 = olMailItem
+        outlook = Dispatch("Outlook.Application")
+        mail = outlook.CreateItem(0)
 
-        # Заполняем поля шаблонного письма
         mail.Subject = f"Ежедневный отчёт за {max(reports_by_day.keys())}"  # или укажите свою тему
         mail.Body = body_text
-        mail.To = "example@mail.com"  # укажите нужный адрес
-        # mail.CC = "cc@domain.com"
-        # При необходимости можно прикрепить файл:
-        # mail.Attachments.Add(str(file_path))
 
-        # Отправка (снимаем комментарий, когда всё будет проверено)
-        mail.Send()   # <-- раскомментируйте для реальной отправки
-        # Для теста лучше сначала использовать mail.Display(True) — покажет письмо без отправки
-        #mail.Display(True)
-        print("Письмо подготовлено и отображено в Outlook.")
+        with open(mail_path, 'r', encoding='utf-8') as f:
+            mail_to = f.read().strip()
+        
+        mail.To = mail_to
+
+        if not mail_path.exists():
+            print('Файл конфигурации не найден')
+            sys.exit()
+        else:
+            mail.Send()
+            print("Письмо подготовлено и отображено в Outlook.")
 
     except Exception as e:
         print(f"Ошибка при отправке письма: {e}")
 
-# Вызываем функцию отправки
 if reports_by_day:
-    send_report_via_outlook()
+    send_report()
 else:
     print("Нет данных для отправки.")
